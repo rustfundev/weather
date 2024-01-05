@@ -10,6 +10,7 @@ pub struct CurrentWeather {
     interval: u32,
     temperature_2m: f64,
     time: String,
+    cloud_cover: u8,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,7 +23,7 @@ pub fn get_weather(
     coord: &Coordinate,
 ) -> Result<Weather, Box<dyn std::error::Error>> {
     let url: String = format!(
-        "{0}?latitude={1}&longitude={2}&current=temperature_2m",
+        "{0}?latitude={1}&longitude={2}&current=temperature_2m,cloud_cover",
         WEATHER_SERVICE_API, coord.latitude, coord.longitude
     );
     let result = request.get(url).expect("Error requesting");
