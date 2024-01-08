@@ -9,6 +9,7 @@ use cli::Args;
 use coordinate::Coordinate;
 use request::Request;
 use weather::get_weather;
+use weather::SkyCover;
 
 struct WeatherRequest;
 
@@ -20,5 +21,10 @@ fn main() {
         latitude: args.latitude,
         longitude: args.longitude,
     };
-    println!("{:?}", get_weather(&WeatherRequest, &coord));
+    let weather = get_weather(&WeatherRequest, &coord).expect("Failed");
+    let sky = SkyCover::new(weather.current.cloud_cover, weather.current.is_day);
+    println!(
+        "Currently, the temperature is {} C and the sky is {}",
+        weather.current.temperature_2m, sky
+    );
 }
