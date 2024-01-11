@@ -7,6 +7,8 @@ use std::fmt::{self};
 
 const WEATHER_SERVICE_API: &str = "https://api.open-meteo.com/v1/forecast";
 
+const FIELDS_TO_DISPLAY: &str = "temperature_2m,cloud_cover,is_day";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CurrentWeather {
     interval: u32,
@@ -72,15 +74,36 @@ impl SkyCover {
     }
 }
 
+fn url(latitude: f32, longitude: f32) -> String {
+    let url: String = format!(
+        "{0}?latitude={1}&longitude={2}&current={3}",
+        WEATHER_SERVICE_API, latitude, longitude, FIELDS_TO_DISPLAY
+    );
+
+    url
+}
+
 pub fn get_weather(
     request: &impl Request,
     coord: &Coordinate,
 ) -> Result<Weather, Box<dyn std::error::Error>> {
-    let url: String = format!(
-        "{0}?latitude={1}&longitude={2}&current=temperature_2m,cloud_cover,is_day",
-        WEATHER_SERVICE_API, coord.latitude, coord.longitude
-    );
-    let result = request.get(url).expect("Error requesting");
+    #[derive(Serialize, Deserialize)]
+    struct DataCurrentWeather {
+        interval: u32,
+        pub temperature_2m: f64,
+        time: String,
+        pub cloud_cover: u8,
+        pub is_day: u8,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct DataWeather {
+        current: DataCurrentWeather,
+    }
+
+    let result = request
+        .get(url(coord.latitude, coord.longitude))
+        .expect("Error requesting");
     let w: Weather = serde_json::from_str(&result)?;
     Ok(w)
 }
@@ -95,12 +118,21 @@ mod t {
     #[test]
     fn test_get_weather() {
         let mut mock: MockRequest = MockRequest::new();
-        let url = String::from("https://api.open-meteo.com/v1/forecast?latitude=10&longitude=10&current=temperature_2m,cloud_cover,is_day");
-        mock.expect_get().with(eq(url)).times(1).returning(|_| {
-            Ok(String::from(
-                "{\"current\": {\"interval\": 10, \"temperature_2m\": 10.0, \"time\": \"10\", \"cloud_cover\": 90, \"is_day\": 1}}",
-            ))
-        });
+        let weather = Weather {
+            current: CurrentWeather {
+                interval: 10,
+                temperature_2m: 10.0,
+                time: String::from("10"),
+                cloud_cover: 90,
+                is_day: 1,
+            },
+        };
+        let result: String = serde_json::to_string(&weather).unwrap();
+        let url = url(10.0, 10.0);
+        mock.expect_get()
+            .with(eq(url))
+            .times(1)
+            .returning(move |_| Ok(result.clone()));
 
         let coord = Coordinate {
             latitude: 10.0,
