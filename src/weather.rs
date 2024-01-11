@@ -9,20 +9,7 @@ const WEATHER_SERVICE_API: &str = "https://api.open-meteo.com/v1/forecast";
 
 const FIELDS_TO_DISPLAY: &str = "temperature_2m,cloud_cover,is_day";
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CurrentWeather {
-    interval: u32,
-    pub temperature_2m: f64,
-    time: String,
-    pub cloud_cover: u8,
-    pub is_day: u8,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Weather {
-    pub current: CurrentWeather,
-}
-
+#[derive(Debug)]
 pub enum SkyCover {
     Cloudy,
     MostlyCloudy,
@@ -74,6 +61,26 @@ impl SkyCover {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct DataCurrentWeather {
+    interval: u32,
+    pub temperature_2m: f32,
+    time: String,
+    pub cloud_cover: u8,
+    pub is_day: u8,
+}
+
+#[derive(Serialize, Deserialize)]
+struct DataWeather {
+    current: DataCurrentWeather,
+}
+
+#[derive(Debug)]
+pub struct Weather {
+    pub temperature: f32,
+    pub sky_cover: SkyCover,
+}
+
 fn url(latitude: f32, longitude: f32) -> String {
     let url: String = format!(
         "{0}?latitude={1}&longitude={2}&current={3}",
@@ -87,25 +94,14 @@ pub fn get_weather(
     request: &impl Request,
     coord: &Coordinate,
 ) -> Result<Weather, Box<dyn std::error::Error>> {
-    #[derive(Serialize, Deserialize)]
-    struct DataCurrentWeather {
-        interval: u32,
-        pub temperature_2m: f64,
-        time: String,
-        pub cloud_cover: u8,
-        pub is_day: u8,
-    }
-
-    #[derive(Serialize, Deserialize)]
-    struct DataWeather {
-        current: DataCurrentWeather,
-    }
-
     let result = request
         .get(url(coord.latitude, coord.longitude))
         .expect("Error requesting");
-    let w: Weather = serde_json::from_str(&result)?;
-    Ok(w)
+    let w: DataWeather = serde_json::from_str(&result)?;
+    Ok(Weather {
+        temperature: w.current.temperature_2m,
+        sky_cover: SkyCover::new(w.current.cloud_cover, w.current.is_day),
+    })
 }
 
 #[cfg(test)]
@@ -118,8 +114,8 @@ mod t {
     #[test]
     fn test_get_weather() {
         let mut mock: MockRequest = MockRequest::new();
-        let weather = Weather {
-            current: CurrentWeather {
+        let weather = DataWeather {
+            current: DataCurrentWeather {
                 interval: 10,
                 temperature_2m: 10.0,
                 time: String::from("10"),
@@ -140,6 +136,6 @@ mod t {
         };
 
         let result = get_weather(&mock, &coord).expect("Error parsing");
-        assert_eq!(result.current.temperature_2m, 10.0);
+        assert_eq!(result.temperature, 10.0);
     }
 }
