@@ -20,7 +20,7 @@ fn main() {
         latitude: args.latitude,
         longitude: args.longitude,
     };
-    let weather = get_weather(&WeatherRequest, &coord).expect("Failed");
+    let weather = get_weather(&WeatherRequest, &coord).unwrap();
     println!(
         "Currently, the temperature is {} C and the sky is {}",
         weather.temperature, weather.sky_cover
